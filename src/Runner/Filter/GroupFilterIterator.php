@@ -39,13 +39,43 @@ abstract class GroupFilterIterator extends RecursiveFilterIterator
     {
         parent::__construct($iterator);
 
-        $groupTests = [];
+        $groupTests  = [];
+        $suiteGroups = $suite->groups();
 
-        foreach ($suite->groups() as $group => $tests) {
-            if (in_array($group, $groups, true)) {
+        $simpleGroups   = [];
+        $compoundGroups = [];
+
+        foreach ($groups as $group) {
+            if (str_contains($group, '+')) {
+                $compoundGroups[] = explode('+', $group);
+            } else {
+                $simpleGroups[] = $group;
+            }
+        }
+
+        foreach ($suiteGroups as $group => $tests) {
+            if (in_array($group, $simpleGroups, true)) {
                 $groupTests = array_merge($groupTests, $tests);
 
                 array_push($groupTests, ...$groupTests);
+            }
+        }
+
+        foreach ($compoundGroups as $constituents) {
+            $testsInAllGroups = null;
+
+            foreach ($constituents as $part) {
+                $testsInGroup = $suiteGroups[$part] ?? [];
+
+                if ($testsInAllGroups === null) {
+                    $testsInAllGroups = $testsInGroup;
+                } else {
+                    $testsInAllGroups = array_values(array_intersect($testsInAllGroups, $testsInGroup));
+                }
+            }
+
+            if ($testsInAllGroups !== null && $testsInAllGroups !== []) {
+                $groupTests = array_merge($groupTests, $testsInAllGroups);
             }
         }
 
